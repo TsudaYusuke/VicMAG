@@ -11,3 +11,9 @@ Python
 - Biotite
 - PIL
 
+### Before run
+- TO DO
+ - extract cicular MAGs
+ - annotate cMAGs by DFAST
+ - analyze cMAGs by geNomad, PlasFlow and CheckV (optional)
+
