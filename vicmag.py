@@ -1,7 +1,5 @@
 from Bio import SeqIO
 import os
-from io import StringIO
-from pathlib import Path
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
