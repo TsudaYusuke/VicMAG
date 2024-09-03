@@ -5,14 +5,13 @@ VicMAG: visualizing circular metagenome-assembled genomes focused on bacterial v
 >[!WARNING]
 >This is alpha version. Now developing.
 
-### Prerequired
+## Prerequired
 Python
 - Bioconda
 - Biotite
 - PIL
 
-### Before run
-- TO DO
+## Before run
  - extract cicular MAGs
  - annotate cMAGs by DFAST
  - analyze cMAGs by geNomad, PlasFlow and CheckV (optional)
