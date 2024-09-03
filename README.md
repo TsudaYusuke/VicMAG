@@ -6,7 +6,7 @@ VicMAG: visualizing circular metagenome-assembled genomes focused on bacterial v
 >This is alpha version. Now developing.
 
 ## Prerequired
-Python
+Python with the following libraries
 - Bioconda
 - Biotite
 - PIL
