@@ -29,7 +29,12 @@ python vicmag0201.py --dir  --yoko  --outdir
 ### Options
 |command| |
 -----|-----
-|--dir| directory containing multiple genbank files|
+|--dir| directory containing multiple genbank files (required)|
+|--plasflow| plasflow file|
+|--checkv_qua| checkv quality file|
+|--checkv_pro| checkv prophage file|
+|--genomad_p| genomad summary_plasmid|
+|--genomad_v| genomad summary_virus|
 |--yoko| the number of cMAGs in the first line (default:5)|
 |--outdir| output directory|
 
