@@ -13,6 +13,27 @@ Python with the following libraries
 
 ## Before run
  - extract cicular MAGs
- - annotate cMAGs by DFAST
+ - annotate cMAGs by DFAST (use option for ARG and VFG identification)
  - analyze cMAGs by geNomad, PlasFlow and CheckV (optional)
 
+
+## Install
+
+
+## Command
+
+~~~ 
+python vicmag0201.py --dir  --yoko  --outdir
+~~~
+
+### Options
+|command| |
+-----|-----
+|--dir| directory containing multiple genbank files|
+|--yoko| the number of cMAGs in the first line (default:5)|
+|--outdir| output directory|
+
+
+
+## Reference
+Please 
