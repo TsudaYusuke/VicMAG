@@ -38,7 +38,9 @@ python vicmag0201.py --dir  --yoko  --outdir
 |--yoko| the number of cMAGs in the first line (default:5)|
 |--outdir| output directory|
 
+## Example
 
+image
 
 ## Reference
 Please 
