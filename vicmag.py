@@ -1,5 +1,8 @@
-from Bio import SeqIO
 import os
+import re
+import shutil
+import tempfile
+import argparse
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,24 +11,23 @@ import biotite.sequence.io.genbank as gb
 import biotite.sequence.graphics as graphics
 import biotite.database.entrez as entrez
 import biotite
-import re
+from Bio import SeqIO
 from PIL import Image
-import subprocess
-import math
+from pathlib import Path
 from statistics import mean
-import shutil
-import tempfile
-import argparse
+from logging import getLogger,INFO
 
-def custom_feature_formatter(feature,gene_color=biotite.colors["orange"],AMG_color='red',VFG_color='green'):
-    # AddGene stores the feature label in the '\label' qualifier
+logger = getLogger(__name__)
+logger.setLevel(INFO)
+
+def custom_feature_formatter(feature,gene_color=biotite.colors["orange"],ARG_color='red',VFG_color='green'):
     label = feature.qual.get("label")
     if feature.key == "CDS":
         return True, 'lightgrey', "black", None   #gene_colorをlightgreyに変更
     elif feature.key == "rep_origin":
         return True, "blue", "black", None
-    elif feature.key == "AMG":
-        return True, AMG_color, 'black', None
+    elif feature.key == "ARG":
+        return True, ARG_color, 'black', None
     elif feature.key == 'hypothetical protein':
         return True, 'lightgrey', 'black', None
     elif feature.key == "VFG":
@@ -41,12 +43,12 @@ def remove_hypo(annotation):
 def return_checkv_data():
     extract_description = re.compile(r'(.*)\_(\d)\s(.*?)\/')
     checkv = []
-    fasta = SeqIO.parse('tmp/fasta_checkv.fasta','fasta')
+    fasta = SeqIO.parse(args.outdir+'/tmp/fasta_checkv.fasta','fasta')
     for i in fasta:
         checkv.append(list(extract_description.search(i.description).groups()))
     
     checkv = pd.DataFrame(checkv)
-    sum_checkv = pd.read_csv('tmp/sum_checkv.csv',index_col=0)
+    sum_checkv = pd.read_csv(args.outdir+'/tmp/sum_checkv.csv',index_col=0)
     for i in checkv[0].unique():
         sum_checkv.loc[i,'position'] = ','.join(checkv[checkv[0]==i][2].to_list())
     sum_checkv = sum_checkv[sum_checkv.index.str.endswith('c')]
@@ -62,62 +64,59 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
     geno_p=''
     geno_v=''
     
-    if os.path.isfile('tmp/pf.csv'):
-        pf = pd.read_csv('tmp/pf.csv')
+    if os.path.isfile(args.outdir+'/tmp/pf.csv'):
+        pf = pd.read_csv(args.outdir+'/mp/pf.csv')
         
-    if os.path.isfile('tmp/geno_p.csv'):
-        geno_p = pd.read_csv('tmp/geno_p.csv')
+    if os.path.isfile(args.outdir+'/tmp/geno_p.csv'):
+        geno_p = pd.read_csv(args.outdir+'/tmp/geno_p.csv')
     
-    if os.path.isfile('tmp/geno_v.csv'):
-        geno_v = pd.read_csv('tmp/geno_v.csv')
+    if os.path.isfile(args.outdir+'/tmp/geno_v.csv'):
+        geno_v = pd.read_csv(args.outdir+'/tmp/geno_v.csv')
         
-    if os.path.isfile('tmp/sum_checkv.csv') and os.path.isfile('tmp/fasta_checkv.fasta'):
+    if os.path.isfile(args.outdir+'/tmp/sum_checkv.csv') and os.path.isfile(args.outdir+'/tmp/fasta_checkv.fasta'):
         result_checkv = return_checkv_data()
-    
-    #geNomad対応
-    #dir内のファイル参照plasmidとvirus
-    #csv読み取って、表示する
     
     target = accession
     s = target
 
-    AMG = []
+    ARG = []
+    VFG = []
     
     ann = []
     
-    
-    #DFAST対応、VFG対応
+    #for DFAST
     for i in target.features:
         if i.type == 'CDS':
             if i.location.strand > 0:
                 if 'note' in i.qualifiers:
-                    for j in i.qualifiers['note']:
-                        if 'ARG' in j:              #dfastはCARDと書かれるので変更する
+                    c_or_v = [s for s in i.qualifiers['note'] if 'similar to' in s]
+                    if c_or_v:
+                        if 'CARD' in c_or_v[0]:  
                             if 'gene' in i.qualifiers:
                                 GENE = i.qualifiers['gene'][0]
                             else:
-                                GENE = ''  #i.qualifiers['product'][0]
+                                GENE = re.compile(r'similar to (.*) in CARD').search(c_or_v[0]).group(1)
                             CDS = seq.Feature(
-                                 "AMG",
+                                 "ARG",
                                 [seq.Location(i.location.start,i.location.end)],
                                 {'product':GENE,'label':GENE}
                             )
-                            AMG.append(GENE)
+                            ARG.append(GENE)
                             ann.append(CDS)
-                            #break
-                        elif 'VFDB' in j:                       # CARDとVFDBが両方存在する時CARD優先
+                            
+                        elif 'VF_ID' in c_or_v[0]:                       # ARG > VFG if identified as both ARG and VFG
                             if 'gene' in i.qualifiers:
                                 GENE = i.qualifiers['gene'][0]
                             else:
-                                GENE = ''#i.qualifiers['product'][0]
+                                GENE = re.compile(r'similar to (.*) in VF_ID').search(c_or_v[0]).group(1)
                             CDS = seq.Feature(
                                  "VFG",
                                 [seq.Location(i.location.start,i.location.end)],
                                 {'product':GENE,'label':GENE}
                                 )
-                            AMG.append(GENE)
-                            ann.append(CDS) #理想的にはidentityで載せるかどうか判定を入れるべき
-                            #break
+                            VFG.append(GENE)
+                            ann.append(CDS) 
+                            
                         else:
                             CDS = seq.Feature(
                             "hypothetical protein",
@@ -125,6 +124,13 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
                             {'product':i.qualifiers['product'][0]}
                             )
                             ann.append(CDS)
+                    else:
+                        CDS = seq.Feature(
+                        "CDS",
+                        [seq.Location(i.location.start,i.location.end)],
+                        {'product':i.qualifiers['product'][0],'label':i.qualifiers['product'][0]}
+                    )
+                    ann.append(CDS)
                 else:        
                     CDS = seq.Feature(
                         "CDS",
@@ -134,33 +140,34 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
                     ann.append(CDS)
             else:
                 if 'note' in i.qualifiers:
-                    for j in i.qualifiers['note']:
-                        if 'CARD' in j:
+                    c_or_v = [s for s in i.qualifiers['note'] if 'similar to' in s]
+                    if c_or_v:
+                        if 'CARD' in c_or_v[0]:
                             if 'gene' in i.qualifiers:
                                 GENE = i.qualifiers['gene'][0]
                             else:
-                                GENE = ''#i.qualifiers['product'][0]
+                                GENE = re.compile(r'similar to (.*) in CARD').search(c_or_v[0]).group(1)
                             CDS = seq.Feature(
-                                 "AMG",
+                                 "ARG",
                                 [seq.Location(i.location.start,i.location.end,seq.Location.Strand.REVERSE)],
                                 {'product':GENE,'label':GENE}
                             )
-                            AMG.append(GENE)
+                            ARG.append(GENE)
                             ann.append(CDS)
-                            #break
-                        elif 'VFDB' in j:
+                            
+                        elif 'VF_ID' in c_or_v[0]:
                             if 'gene' in i.qualifiers:
                                 GENE = i.qualifiers['gene'][0]
                             else:
-                                GENE = ''#i.qualifiers['product'][0]
+                                GENE = re.compile(r'similar to (.*) in VF_ID').search(c_or_v[0]).group(1)
                             CDS = seq.Feature(
                                  "VFG",
                                 [seq.Location(i.location.start,i.location.end,seq.Location.Strand.REVERSE)],
                                 {'product':GENE,'label':GENE}
                                 )
-                            AMG.append(GENE)
+                            VFG.append(GENE)
                             ann.append(CDS)
-                            #break
+                            
                         else:
                             CDS = seq.Feature(
                             "hypothetical protein",
@@ -168,6 +175,13 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
                             {'product':i.qualifiers['product'][0]}
                             )
                             ann.append(CDS)
+                    else:
+                        CDS = seq.Feature(
+                            "CDS",
+                            [seq.Location(i.location.start,i.location.end,seq.Location.Strand.REVERSE)],
+                            {'product':i.qualifiers['product'][0],'label':i.qualifiers['product'][0]}
+                            )
+                        ann.append(CDS)
                 else:        
                     CDS = seq.Feature(
                         "CDS",
@@ -178,7 +192,7 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
                     
     annotation =seq.Annotation(ann)
     
-    rippo = math.pow(len(target.seq),1/3) / math.pow(25893,1/3) #立方比とる
+    rippo = (len(target.seq)**(1/3)) / (min_len**(1/3)) #adjust size
     
     fig = plt.figure(figsize=(7*rippo,7*rippo),tight_layout=True)
     ax = fig.add_subplot(111, projection="polar")
@@ -193,15 +207,15 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
             pass
         else:
             pass
-    
+            
     #coloring other from genomad
     if type(geno_p) == type(pd.DataFrame()):
-        if geno_p.loc[geno_p['seq_name']==target.name]['plasmid_score'].values<0.95:
+        if target.name in list(geno_p['seq_name']):
+            pass
+        else:
             r = np.full(100,0.98)
             theta = np.linspace(0,2*np.pi,100)
             ax.fill(theta,r,'azure')
-        else:
-            pass
     
     graphics.plot_plasmid_map(
         ax, annotation, plasmid_size=len(s), tick_step=len(s),
@@ -220,22 +234,33 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
     x = 0
     for i in annotation.get_features():
         mean_loc = mean([[loc for loc in i.locs][0].first,[loc for loc in i.locs][0].last])
-        if i.key=='AMG':
+        if i.key=='ARG':
             if i.qual['product'] != 'hypothetical protein':
                 position_x.append(2*np.pi*mean_loc/len(s))
                 position_y.append(0.95)
                 label.loc[x,:] = [2*np.pi*mean_loc/len(s),1.1,i.qual['product']]
                 x += 1
-    
-    ticks = ax.get_xticks()
-    labels = ax.get_xticklabels()
+            else:
+                pass
+        elif i.key=='VFG':
+            if i.qual['product'] != 'hypothetical protein':
+                position_x.append(2*np.pi*mean_loc/len(s))
+                position_y.append(0.95)
+                label.loc[x,:] = [2*np.pi*mean_loc/len(s),1.1,i.qual['product']]
+                x += 1
+            else:
+                pass
+        else:
+            pass
+                
+
     sa_between = [abs(j-i) for i, j in zip(np.sort(position_x)[:-1], np.sort(position_x)[1:])]
-    position_y = [1.1]
+    position_y = [1.02]
     for i in sa_between:
         if i > 0.04:
-            position_y.append(1.1)
+            position_y.append(1.02)
         else:
-            position_y.append(position_y[-1]+0.05)
+            position_y.append(position_y[-1]+0.02)
 
     show_product = False
     if show_product:
@@ -250,46 +275,91 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
     label['y'] = position_y
     
     for i in label.index[::-1]:
-        if label.loc[i,'x'] <np.pi:
-            ax.plot([label.loc[i,'x'],label.loc[i,'x']],[0.95,label.loc[i,'y']],c='black')
+        ax.plot([label.loc[i,'x'],label.loc[i,'x']],[0.95,label.loc[i,'y']],c='black')
+        if label.loc[i,'x'] == 0:
             ax.text(label.loc[i,'x'],label.loc[i,'y'],label.loc[i,'text'],bbox=dict(boxstyle="square",
                    ec='white',
                    fc='white',
                    ),
-                   ha='left')
+                   ha='center',
+                   va='bottom')
+        elif label.loc[i,'x'] <np.pi/2:
+            ax.text(label.loc[i,'x'],label.loc[i,'y'],label.loc[i,'text'],bbox=dict(boxstyle="square",
+                   ec='white',
+                   fc='white',
+                   ),
+                   ha='left',
+                   va='bottom')
+        elif label.loc[i,'x'] ==np.pi/2:
+            ax.text(label.loc[i,'x'],label.loc[i,'y'],label.loc[i,'text'],bbox=dict(boxstyle="square",
+                   ec='white',
+                   fc='white',
+                   ),
+                   ha='left',
+                   va='center')
+        elif label.loc[i,'x'] <np.pi:
+            ax.text(label.loc[i,'x'],label.loc[i,'y'],label.loc[i,'text'],bbox=dict(boxstyle="square",
+                   ec='white',
+                   fc='white',
+                   ),
+                   ha='left',
+                   va='top')
+        elif label.loc[i,'x'] == np.pi:
+            ax.text(label.loc[i,'x'],label.loc[i,'y'],label.loc[i,'text'],bbox=dict(boxstyle="square",
+                   ec='white',
+                   fc='white',
+                   ),
+                   ha='center',
+                   va='bottom')
+        elif label.loc[i,'x'] <np.pi*1.5:
+            ax.text(label.loc[i,'x'],label.loc[i,'y'],label.loc[i,'text'],bbox=dict(boxstyle="square",
+                   ec='white',
+                   fc='white',
+                   ),
+                   ha='right',
+                   va='top')
+        elif label.loc[i,'x'] ==np.pi*1.5:
+            ax.text(label.loc[i,'x'],label.loc[i,'y'],label.loc[i,'text'],bbox=dict(boxstyle="square",
+                   ec='white',
+                   fc='white',
+                   ),
+                   ha='right',
+                   va='center')
         else:
-            ax.plot([label.loc[i,'x'],label.loc[i,'x']],[0.95,label.loc[i,'y']],c='black')
             ax.text(label.loc[i,'x'],label.loc[i,'y'],label.loc[i,'text'],bbox=dict(boxstyle="square",
                    ec='white',
                    fc='white',
                    ),
-                   ha='right')
-
+                   ha='right',
+                   va='bottom')
+            
+    # show length
     for i in range(0,len(s.seq),10**(len(str(len(s.seq)))-1)):
         x_num = 2*np.pi*i/len(s.seq)
         if x_num == 0:
-            ax.text(x_num,1,i,ha='center',va='bottom')
+            ax.plot([x_num,x_num],[1,0.80],c='black')
+            ax.text(x_num,0.79,i,ha='center',va='top')
         elif x_num <np.pi/2:
-            ax.plot([x_num,x_num],[1,1.01],c='black')
-            ax.text(x_num,1.02,i,ha='left',va='bottom')
+            ax.plot([x_num,x_num],[0.82,0.80],c='black')
+            ax.text(x_num,0.79,i,ha='right',va='top')
         elif x_num ==np.pi/2:
-            ax.plot([x_num,x_num],[1,1.01],c='black')
-            ax.text(x_num,1.02,i,ha='left',va='center')
+            ax.plot([x_num,x_num],[0.82,0.80],c='black')
+            ax.text(x_num,0.79,i,ha='right',va='center')
         elif x_num <np.pi:
-            ax.plot([x_num,x_num],[1,1.01],c='black')
-            ax.text(x_num,1.02,i,ha='left',va='top')
+            ax.plot([x_num,x_num],[0.82,0.80],c='black')
+            ax.text(x_num,0.79,i,ha='right',va='bottom')
         elif x_num == np.pi:
-            ax.plot([x_num,x_num],[1,1.01],c='black')
-            ax.text(x_num,1.02,i,ha='center',va='top')
+            ax.plot([x_num,x_num],[0.82,0.80],c='black')
+            ax.text(x_num,0.79,i,ha='center',va='top')
         elif x_num <np.pi*1.5:
-            ax.plot([x_num,x_num],[1,1.01],c='black')
-            ax.text(x_num,1.02,i,ha='right',va='top')
+            ax.plot([x_num,x_num],[0.82,0.80],c='black')
+            ax.text(x_num,0.79,i,ha='left',va='bottom')
         elif x_num ==np.pi*1.5:
-            ax.plot([x_num,x_num],[1,1.01],c='black')
-            ax.text(x_num,1.02,i,ha='right',va='center')
+            ax.plot([x_num,x_num],[0.82,0.80],c='black')
+            ax.text(x_num,0.79,i,ha='left',va='center')
         else:
-            ax.plot([x_num,x_num],[1,1.01],c='black')
-            ax.text(x_num,1.02,i,ha='right',va='bottom')
+            ax.plot([x_num,x_num],[0.82,0.80],c='black')
+            ax.text(x_num,0.78,i,ha='left',va='top')
     
     #show virus area
     if type(result_checkv) == type(pd.DataFrame()):
@@ -315,104 +385,126 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
         else:
             pass
     
-    ax.text(0,0,accession.id,fontsize=20*rippo/2,ha='center',va='top')#20*rippo +'\n\n'+"{:,}".format(len(target))+' bp'
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.text(0,0.08,accession.id+'\n\n'+"{:,}".format(len(target))+' bp',fontsize=20*rippo/2,ha='center',va='top')
     plt.savefig(store+target.name+'.png',dpi=100)
+    
+    plt.close()
     
 def sort_gb_by_length(gb):
     pd_gbs_len = pd.DataFrame([[i.name, len(i.seq)] for i in gb.values()],columns=['n','l']).sort_values('l')
     return pd_gbs_len['n'].to_list()
 
-def add_margin(img, sa1, width):
-    result = Image.new(img.mode,(width+sa1,width+sa1),(255,255,255))
-    result.paste(img,(round(sa1/2),round(sa1/2)))
+def add_margin_tate(img, sa1, height):
+    result = Image.new(img.mode,(height,height+sa1),(255,255,255))
+    result.paste(img,(0,round(sa1/2)))
     return result
 
 def page_main():
 	pf = ''
 	result_checkv = ''
-	if os.path.isfile('tmp/pf.csv'):
-		pf = pd.read_csv('tmp/pf.csv')
+	if os.path.isfile(args.outdir+'/tmp/pf.csv'):
+		pf = pd.read_csv(args.outdir+'/tmp/pf.csv')
 	
-	if os.path.isfile('tmp/sum_checkv.csv') and os.path.isfile('tmp/fasta_checkv.fasta'):
+	if os.path.isfile(args.outdir+'/tmp/sum_checkv.csv') and os.path.isfile(args.outdir+'/tmp/fasta_checkv.fasta'):
 		result_checkv = return_checkv_data()
-		
-
-	os.makedirs('tmp/image/',exist_ok=True)
+	
+	os.makedirs(args.outdir+'/tmp/image/',exist_ok=True)
 	for i in gbs.keys():
-		if not os.path.isfile('tmp/image/'+i+'.png'):
-			make_map(accession=gbs[i],store='tmp/image/')
+		if not os.path.isfile(args.outdir+'/tmp/image/'+i+'.png'):
+			logger.info('making each map')
+			make_map(accession=gbs[i],store=args.outdir+'/tmp/image/')
 		else:
-			pass
+			logger.info('There are already image files.')
 		
-	exist_img_gbk = [Path(i).stem for i in os.listdir('tmp/image/')]
+	exist_img_gbk = [Path(i).stem for i in os.listdir(args.outdir+'/tmp/image/')]
 	not_exist = list(set(exist_img_gbk)-set(list(gbs.keys())))
 	if not_exist:
 		for i in not_exist:
-			os.remove('tmp/image/'+i+'.png')
+			os.remove(args.outdir+'/tmp/image/'+i+'.png')
 	else:
 		pass
 		
-	imgs_tate = []
-	for i in gbs_select:
-		imgs_tate.append(Image.open('tmp/image/'+i+'.png'))
-		
-	imgs_tate_r = []
-	all_width = [np.array(i).shape[0] for i in imgs_tate]
-	max_len = max(all_width)
-	for i in range(len(all_width)):
-		sa = max_len-all_width[i]
-		imgs_tate_r.append(np.array(add_margin(imgs_tate[i],sa,all_width[i])))
-		
-	naravi = 16
-	_,amari = divmod(len(imgs_tate_r),naravi)
-		
-	if amari != 0:
-	    imgs_tate_r = imgs_tate_r + [np.full(imgs_tate_r[0].shape,255)] * (naravi-amari)
-	else:
-		pass
-		
-	imgs_yoko = []
-	for i in range(0,len(imgs_tate_r),naravi):
-		imgs_yoko.append(np.concatenate(imgs_tate_r[i:i+naravi],axis=1))
-		
-	#縦のサイズ調整
-	imgs_yoko_resized = []
-	for i in imgs_yoko:
-	    tn = np.where(i==255, np.nan, i) # 255をnanにする
-	    not_white = []
-	    for j in range(len(tn[:])):
-	        if np.prod([np.isnan(tn[j,:,x]) for x in range(0,4)]) == 0: # 4次元で255だらけのところを外す
-	            not_white.append(j)
-	    space = 80
-	    iro_ari = list(range(not_white[0]-space,not_white[0]))+not_white+list(range(not_white[-1],not_white[-1]+space))
-	    imgs_yoko_resized.append(i[iro_ari, :,:])
+	logger.info('making maps')
+	
+	imgs = []
+	for i in gbs_select[::-1]:
+		imgs.append(Image.open(args.outdir+'/tmp/image/'+i+'.png'))
+	
+	yoko = int(args.yoko)
+	space = 50
+	all_width = [np.array(i).shape[0] for i in imgs]
+	width_1 = [np.array(i).shape[0] for i in imgs[:yoko]]
+	img_1 = []
+	for i in range(len(width_1)):
+		sa_1 = max(width_1)-width_1[i]
+		img_1.append(np.array(add_margin_tate(imgs[i],sa_1,width_1[i])))
+	im_1 = np.concatenate(img_1,axis=1)
+	
+	tn_im = np.where(im_1==255,np.nan,im_1)
+	not_white_1 = []
+	for j in range(tn_im.shape[0]):
+		if np.prod([np.isnan(tn_im[j,:,x]) for x in range(0,4)]) == 0:
+			not_white_1.append(j)
+	iro_ari_1 = list(range(not_white_1[0]-space,not_white_1[0]))+not_white_1+list(range(not_white_1[-1],not_white_1[-1]+space))
+	img_yoko_1 = im_1[iro_ari_1,:,:]
+	
+	max_width = img_yoko_1.shape[1]
+	img_to_show = [img_yoko_1]
+
+	start = yoko
+	x = 1
+	ar = []
+	while start < len(all_width):
+		while sum(all_width[start:start+x]) < max_width:
+			if start+x == len(all_width)+1:
+				ar.append(imgs[start:x+start-1])
+				break
+			x += 1
+		else:
+			ar.append(imgs[start:x+start-1])
+		start = start + x -1 
+		x = 1
+	
+	for k in ar:
+		width = [np.array(i).shape[0] for i in k]
+		img_each = []
+		for i in range(len(width)):
+			sa_each = max(width)-width[i]
+			img_each.append(np.array(add_margin_tate(k[i],sa_each,width[i])))
+		ims = np.concatenate(img_each,axis=1)
+	
+		img_yokos = []
+		tn_im = np.where(ims==255,np.nan,ims)
+		not_white = []
+		for j in range(tn_im.shape[0]):
+			if np.prod([np.isnan(tn_im[j,:,x]) for x in range(0,4)]) == 0: # 4次元で255だらけのところを外す
+				not_white.append(j)
+		iro_ari = list(range(not_white[0]-space,not_white[0]))+not_white+list(range(not_white[-1],not_white[-1]+space))
+		img_yokos = ims[iro_ari,:,:]
+		img_to_show.append(img_yokos)
 		
 	fig, ax = plt.subplots()
 	ax.axis('off')
 	
-	im = np.concatenate(imgs_yoko_resized,axis=0)
-	yoko_space = []
-	for i in range(im.shape[1]-40):
-	    if np.sum(im[:,i,0]-im[:,i+40,0]) == 0:
-	        pass
-	    else:
-	        yoko_space.append(i)
-	im_2 = im[:,yoko_space,:]
+	img_yoko_width_each = [i.shape[1] for i in img_to_show]
+	imgs_tate = []
+	for i in img_to_show:
+		sa_t = max(img_yoko_width_each)-i.shape[1]
+		imgs_tate.append(np.concatenate([i,np.full((i.shape[0],sa_t,i.shape[2]),255)],axis=1))
+	im = np.concatenate(imgs_tate,axis=0)
+	Image.fromarray(im.astype(np.uint8)).save(args.outdir+'/cMAGS.png') 
 	
-	
-	pil_im = Image.fromarray(im_2.astype(np.uint8))
-	pil_im.save('cMAGS.png')  
+	logger.info('Done! See you!')
 	
 def page_each(gb):
-	if not os.path.isfile('tmp/image/'+gb+'.png'):
-	    make_map(accession=gb,store='tmp/image/')
+	if not os.path.isfile(args.outdir+'/tmp/image/'+gb+'.png'):
+	    make_map(accession=gb,store=args.outdir+'/tmp/image/')
 	else:
 	    pass
 
-
-
 parser = argparse.ArgumentParser('Option to run VicMAG')
-
 
 parser.add_argument('--dir',help='path to directory containing genbank files',required=True)
 parser.add_argument('--plasflow',help='plasflow file',default='')
@@ -420,10 +512,12 @@ parser.add_argument('--checkv_qua',default='')
 parser.add_argument('--checkv_pro',default='')
 parser.add_argument('--genomad_p',help='genomad summary_plasmid',default='')
 parser.add_argument('--genomad_v',default='')
+parser.add_argument('--yoko',default=10)
+parser.add_argument('--outdir',default='./')
 
 args = parser.parse_args()
 
-os.makedirs('tmp',exist_ok=True)
+os.makedirs(args.outdir+'/tmp',exist_ok=True)
 
 gbs_select = []
 gbs = {}
@@ -432,37 +526,44 @@ if os.path.isdir(args.dir):
 	uploaded_files = os.listdir(args.dir)
 	if len(uploaded_files)>0:
 		for uploaded_file in uploaded_files:
-			record = SeqIO.read(args.dir+'/'+uploaded_file,'genbank')
-			gbs[record.name] = record
-		gbs_select = gbs_select + sort_gb_by_length(gbs)
+			if uploaded_file.endswith(('gb','gbk')):
+				record = SeqIO.read(args.dir+'/'+uploaded_file,'genbank')
+				gbs[record.name] = record
+			else:
+				logger.warning('Unknown file:'+uploaded_file)
+		pd_gbs_len = pd.DataFrame([[i.name, len(i.seq)] for i in gbs.values()],columns=['n','l']).sort_values('l')
+		gbs_select = gbs_select + pd_gbs_len['n'].to_list()
+		min_len = min(pd_gbs_len['l'])
 	else:
 		pass
+		
 
 if os.path.isfile(args.plasflow):
     pf = pd.read_table(args.plasflow,index_col=0)
-    pf.to_csv('tmp/pf.csv')
+    pf.to_csv(args.outdir+'/tmp/pf.csv')
+else:
+    logger.warning('No plasflow files')
     
 if os.path.isfile(args.genomad_p):
     pf = pd.read_table(args.genomad_p,index_col=0)
-    pf.to_csv('tmp/geno_p.csv')    
+    pf.to_csv(args.outdir+'/tmp/geno_p.csv')    
+else:
+    logger.warning('No GenoVi plasmid file')
     
 if os.path.isfile(args.genomad_v):
     pf = pd.read_table(args.genomad_v,index_col=0)
-    pf.to_csv('tmp/geno_v.csv')  
+    pf.to_csv(args.outdir+'/tmp/geno_v.csv')  
+else:
+    logger.warning('No GenoVi virus file')
 
 if os.path.isfile(args.checkv_qua) and os.path.file(args.checkv_pro):
             sum_checkv = pd.read_table(args.checkv_qua,index_col=0)
-            sum_checkv.to_csv('tmp/sum_checkv.csv')
+            sum_checkv.to_csv(args.outdir+'/tmp/sum_checkv.csv')
             
             fasta_checkv = SeqIO.parse(args.checkv_pro,'fasta')
-            SeqIO.write(fasta_checkv,'tmp/fasta_checkv.fasta','fasta')
+            SeqIO.write(fasta_checkv,args.outdir+'/tmp/fasta_checkv.fasta','fasta')
 
 if len(gbs_select) > 1:
-#	if selected_page == gbs_select[0]:
 		page_main()
-#	else:
-#		page_each(selected_page)
 else:
-	pass
-
-
+	logger.warning('No file. Done')
