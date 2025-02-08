@@ -1,4 +1,4 @@
-# VicMAG
+# VicMAG ![https://github.com/TsudaYusuke/VicMAG/blob/main/vicmag_logo.png vicmag]
 
 VicMAG: visualizing circular metagenome-assembled genomes focused on bacterial virulence and antimicrobial resistance
 
