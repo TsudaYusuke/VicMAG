@@ -19,7 +19,7 @@ conda install -c conda-forge pillow biopython biotite -y
 
 ## Before run
  - extract cicular MAGs
- - annotate cMAGs by DFAST (use option for ARG and VFG identification)
+ - annotate cMAGs by [DFAST](https://github.com/nigyta/dfast_core) (use option for ARG and VFG identification)
  - analyze cMAGs by geNomad, PlasFlow and CheckV (optional)
 
 
