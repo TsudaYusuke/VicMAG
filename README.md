@@ -43,7 +43,8 @@ python vicmag0201.py --dir /path_to_dir_containing_gbk_files --n_row 10  --outdi
 
 ## Example
 
-image
+image will be uploaded
 
 ## Reference
-Please 
+Please cite the following article. Thank you.
+
