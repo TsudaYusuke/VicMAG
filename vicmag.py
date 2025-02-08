@@ -445,7 +445,6 @@ def page_main():
 		if not os.path.isfile(args.outdir+'/tmp/image/'+i+'.png'):
 			logger.info('making each map: '+i)
 			make_map(accession=gbs[i],store=args.outdir+'/tmp/image/')
-			print(5)
 		else:
 			logger.info('There are already an image file. :'+i)
 		
