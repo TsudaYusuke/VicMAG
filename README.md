@@ -1,4 +1,4 @@
-<img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/vicmag_logo.png">
+<img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/vicmag_logo.png"><img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/vicmag_logo.png"><img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/vicmag_logo.png"><img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/vicmag_logo.png"><img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/vicmag_logo.png"><img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/vicmag_logo.png">
 
 # VicMAG 
 
