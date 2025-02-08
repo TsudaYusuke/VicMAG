@@ -23,7 +23,7 @@ Python with the following libraries
 ## Command
 
 ~~~ 
-python vicmag0201.py --dir  --yoko  --outdir
+python vicmag0201.py --dir /path_to_dir_containing_gbk_files --n_row 10  --outdir /path_to_output_dir
 ~~~
 
 ### Options
