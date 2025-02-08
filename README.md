@@ -35,8 +35,9 @@ python vicmag0201.py --dir  --yoko  --outdir
 |--checkv_pro| checkv prophage file|
 |--genomad_p| genomad summary_plasmid|
 |--genomad_v| genomad summary_virus|
-|--yoko| the number of cMAGs in the first line (default:5)|
+|--n_row| the number of cMAGs in the first line (default:5)|
 |--outdir| output directory|
+|--force| remove exisitng output directory|
 
 ## Example
 
