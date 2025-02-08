@@ -1,29 +1,65 @@
 import os
 import re
+import sys
 import shutil
 import tempfile
 import argparse
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import biotite
 import biotite.sequence as seq
 import biotite.sequence.io.genbank as gb
 import biotite.sequence.graphics as graphics
 import biotite.database.entrez as entrez
-import biotite
 from Bio import SeqIO
 from PIL import Image
 from pathlib import Path
 from statistics import mean
-from logging import getLogger,INFO
+from logging import getLogger,INFO,DEBUG,StreamHandler,Formatter,FileHandler
+
+parser = argparse.ArgumentParser('Options to run VicMAG')
+
+parser.add_argument('--dir',help='path to directory containing genbank files',required=True)
+parser.add_argument('--plasflow',help='path to plasflow file',default='')
+parser.add_argument('--checkv_qua',help='path to checkv quality file',default='')
+parser.add_argument('--checkv_pro',help='path to checkv prophage file',default='')
+parser.add_argument('--genomad_p',help='genomad summary_plasmid file',default='')
+parser.add_argument('--genomad_v',help='genomad summary_virus file',default='')
+parser.add_argument('--n_row',help='number of cMAGs in the top row',default=10)
+parser.add_argument('--outdir',help='output directory',default='./')
+parser.add_argument('--force',help='remove existing outdir',action='store_true')
+
+args = parser.parse_args()
+
+if args.force:
+    if os.path.isdir(args.outdir):
+        shutil.rmtree(args.outdir)
+    else:
+        pass
+else:
+    pass
+
+os.makedirs(args.outdir+'/tmp',exist_ok=True)
 
 logger = getLogger(__name__)
 logger.setLevel(INFO)
 
+handler = StreamHandler()
+handler.setLevel(INFO)
+formatter = Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+file_handler = FileHandler(args.outdir+'/VicMAG.log' , 'w')
+file_handler.setLevel(INFO)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
 def custom_feature_formatter(feature,gene_color=biotite.colors["orange"],ARG_color='red',VFG_color='green'):
     label = feature.qual.get("label")
     if feature.key == "CDS":
-        return True, 'lightgrey', "black", None   #gene_colorをlightgreyに変更
+        return True, 'lightgrey', "black", None 
     elif feature.key == "rep_origin":
         return True, "blue", "black", None
     elif feature.key == "ARG":
@@ -33,12 +69,14 @@ def custom_feature_formatter(feature,gene_color=biotite.colors["orange"],ARG_col
     elif feature.key == "VFG":
         return True, VFG_color, 'black', None
         
-def remove_hypo(annotation):
-    new_ann = []
-    for i in annotation:
-        if i.key != 'hypothetical protein':
-            new_ann.append(i)
-    return seq.Annotation(new_ann)
+def sort_gb_by_length(gb):
+    pd_gbs_len = pd.DataFrame([[i.name, len(i.seq)] for i in gb.values()],columns=['n','l']).sort_values('l')
+    return pd_gbs_len['n'].to_list()
+
+def add_margin_tate(img, sa1, height):
+    result = Image.new(img.mode,(height,height+sa1),(255,255,255))
+    result.paste(img,(0,round(sa1/2)))
+    return result
     
 def return_checkv_data():
     extract_description = re.compile(r'(.*)\_(\d)\s(.*?)\/')
@@ -65,7 +103,7 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
     geno_v=''
     
     if os.path.isfile(args.outdir+'/tmp/pf.csv'):
-        pf = pd.read_csv(args.outdir+'/mp/pf.csv')
+        pf = pd.read_csv(args.outdir+'/tmp/pf.csv')
         
     if os.path.isfile(args.outdir+'/tmp/geno_p.csv'):
         geno_p = pd.read_csv(args.outdir+'/tmp/geno_p.csv')
@@ -197,7 +235,7 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
     fig = plt.figure(figsize=(7*rippo,7*rippo),tight_layout=True)
     ax = fig.add_subplot(111, projection="polar")
     
-    #coloring chromosome
+    #coloring chromosome from plasflow
     if type(pf) == type(pd.DataFrame()):
         if pf[pf['contig_name']==target.name]['label'].values[0].startswith('chromosome'):
             r = np.full(100,0.98)
@@ -227,8 +265,8 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
     ax.set_axis_off()
     
     plt.ylim(0,1.5)
+    
     label = pd.DataFrame(columns=['x','y','text'])
-    texts = []
     position_x = []
     position_y = []
     x = 0
@@ -273,7 +311,6 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
     label = label.sort_values('x')
     
     label['y'] = position_y
-    
     for i in label.index[::-1]:
         ax.plot([label.loc[i,'x'],label.loc[i,'x']],[0.95,label.loc[i,'y']],c='black')
         if label.loc[i,'x'] == 0:
@@ -332,7 +369,7 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
                    ),
                    ha='right',
                    va='bottom')
-            
+                   
     # show length
     for i in range(0,len(s.seq),10**(len(str(len(s.seq)))-1)):
         x_num = 2*np.pi*i/len(s.seq)
@@ -387,19 +424,12 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
     
     ax.set_xticks([])
     ax.set_yticks([])
+    
     ax.text(0,0.08,accession.id+'\n\n'+"{:,}".format(len(target))+' bp',fontsize=20*rippo/2,ha='center',va='top')
+    
     plt.savefig(store+target.name+'.png',dpi=100)
     
     plt.close()
-    
-def sort_gb_by_length(gb):
-    pd_gbs_len = pd.DataFrame([[i.name, len(i.seq)] for i in gb.values()],columns=['n','l']).sort_values('l')
-    return pd_gbs_len['n'].to_list()
-
-def add_margin_tate(img, sa1, height):
-    result = Image.new(img.mode,(height,height+sa1),(255,255,255))
-    result.paste(img,(0,round(sa1/2)))
-    return result
 
 def page_main():
 	pf = ''
@@ -413,10 +443,11 @@ def page_main():
 	os.makedirs(args.outdir+'/tmp/image/',exist_ok=True)
 	for i in gbs.keys():
 		if not os.path.isfile(args.outdir+'/tmp/image/'+i+'.png'):
-			logger.info('making each map')
+			logger.info('making each map: '+i)
 			make_map(accession=gbs[i],store=args.outdir+'/tmp/image/')
+			print(5)
 		else:
-			logger.info('There are already image files.')
+			logger.info('There are already an image file. :'+i)
 		
 	exist_img_gbk = [Path(i).stem for i in os.listdir(args.outdir+'/tmp/image/')]
 	not_exist = list(set(exist_img_gbk)-set(list(gbs.keys())))
@@ -432,7 +463,8 @@ def page_main():
 	for i in gbs_select[::-1]:
 		imgs.append(Image.open(args.outdir+'/tmp/image/'+i+'.png'))
 	
-	yoko = int(args.yoko)
+	# merge horizontal images in the top
+	yoko = int(args.n_row)
 	space = 50
 	all_width = [np.array(i).shape[0] for i in imgs]
 	width_1 = [np.array(i).shape[0] for i in imgs[:yoko]]
@@ -452,7 +484,8 @@ def page_main():
 	
 	max_width = img_yoko_1.shape[1]
 	img_to_show = [img_yoko_1]
-
+	
+	# merge vertical images
 	start = yoko
 	x = 1
 	ar = []
@@ -498,26 +531,6 @@ def page_main():
 	
 	logger.info('Done! See you!')
 	
-def page_each(gb):
-	if not os.path.isfile(args.outdir+'/tmp/image/'+gb+'.png'):
-	    make_map(accession=gb,store=args.outdir+'/tmp/image/')
-	else:
-	    pass
-
-parser = argparse.ArgumentParser('Option to run VicMAG')
-
-parser.add_argument('--dir',help='path to directory containing genbank files',required=True)
-parser.add_argument('--plasflow',help='plasflow file',default='')
-parser.add_argument('--checkv_qua',default='')
-parser.add_argument('--checkv_pro',default='')
-parser.add_argument('--genomad_p',help='genomad summary_plasmid',default='')
-parser.add_argument('--genomad_v',default='')
-parser.add_argument('--yoko',default=10)
-parser.add_argument('--outdir',default='./')
-
-args = parser.parse_args()
-
-os.makedirs(args.outdir+'/tmp',exist_ok=True)
 
 gbs_select = []
 gbs = {}
