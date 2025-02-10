@@ -495,8 +495,6 @@ def page_main():
 	if args.virus_only:
 		pd_gbs_l = pd_gbs_l[~(pd_gbs_l['virus'].isnull())]
 	
-	print(pd_gbs_l)
-	
 	imgs = []
 	for i in pd_gbs_l.index[::-1]:
 		imgs.append(Image.open(args.outdir+'/tmp/image/'+i+'.png'))
