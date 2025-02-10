@@ -20,15 +20,28 @@ from logging import getLogger,INFO,DEBUG,StreamHandler,Formatter,FileHandler
 
 parser = argparse.ArgumentParser('Options to run VicMAG')
 
-parser.add_argument('--dir',help='path to directory containing genbank files',required=True)
+parser.add_argument('--gbks',help='path to directory containing genbank files',required=True)
+parser.add_argument('--outdir',help='output directory',default='./')
+parser.add_argument('--n_row',help='number of cMAGs in the top row',default=10)
+
 parser.add_argument('--plasflow',help='path to plasflow file',default='')
 parser.add_argument('--checkv_qua',help='path to checkv quality file',default='')
 parser.add_argument('--checkv_pro',help='path to checkv prophage file',default='')
 parser.add_argument('--genomad_p',help='genomad summary_plasmid file',default='')
 parser.add_argument('--genomad_v',help='genomad summary_virus file',default='')
-parser.add_argument('--n_row',help='number of cMAGs in the top row',default=10)
-parser.add_argument('--outdir',help='output directory',default='./')
-parser.add_argument('--force',help='remove existing outdir',action='store_true')
+
+parser.add_argument('--force',help='remove exisitng outdir',action='store_true')
+
+parser.add_argument('--plasmid_only',help='make map of plasmids only',action='store_true')
+parser.add_argument('--non_plasmid_only',help='make map of non_plasmids only',action='store_true')
+parser.add_argument('--v_a_only',help='make map of cMAGs containing vfgs or args',action='store_true')
+parser.add_argument('--virus_only',help='make map of cMAGs containing virus area',action='store_true')
+
+parser.add_argument('--c_arg',help='color of antimicrobial resistance genes (default:red)',default='red')
+parser.add_argument('--c_vfg',help='color of virulence factor genes (default:green)',default='green')
+parser.add_argument('--c_cds',help='color of cds (default:lightgrey)',default='lightgrey')
+parser.add_argument('--c_vir',help='color of antimicrobial resistance genes (default:blue, alpha=0.3)',default='blue')
+parser.add_argument('--c_non_p',help='color of antimicrobial resistance genes (default:azure)',default='azure')
 
 args = parser.parse_args()
 
@@ -56,10 +69,10 @@ file_handler.setLevel(INFO)
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-def custom_feature_formatter(feature,gene_color=biotite.colors["orange"],ARG_color='red',VFG_color='green'):
+def custom_feature_formatter(feature,gene_color=biotite.colors["orange"],ARG_color=args.c_arg,VFG_color=args.c_vfg,CDS_color=args.c_cds):
     label = feature.qual.get("label")
     if feature.key == "CDS":
-        return True, 'lightgrey', "black", None 
+        return True, CDS_color, "black", None 
     elif feature.key == "rep_origin":
         return True, "blue", "black", None
     elif feature.key == "ARG":
@@ -101,6 +114,7 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
     result_checkv = ''
     geno_p=''
     geno_v=''
+    pd_gbs_l = pd.read_csv(args.outdir+'/summary_gbk.csv',index_col=0)
     
     if os.path.isfile(args.outdir+'/tmp/pf.csv'):
         pf = pd.read_csv(args.outdir+'/tmp/pf.csv')
@@ -227,7 +241,11 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
                         {'product':i.qualifiers['product'][0],'label':i.qualifiers['product'][0]}
                         )
                     ann.append(CDS)
-                    
+    if len(ARG)>0:
+        pd_gbs_l.loc[target.name,'arg'] = ','.join(ARG)
+    if len(VFG)>0:
+        pd_gbs_l.loc[target.name,'vfg'] = ','.join(VFG)
+    
     annotation =seq.Annotation(ann)
     
     rippo = (len(target.seq)**(1/3)) / (min_len**(1/3)) #adjust size
@@ -240,20 +258,20 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
         if pf[pf['contig_name']==target.name]['label'].values[0].startswith('chromosome'):
             r = np.full(100,0.98)
             theta = np.linspace(0,2*np.pi,100)
-            ax.fill(theta,r,'azure')
+            ax.fill(theta,r,args.c_non_p)
         elif pf[pf['contig_name']==target.name]['label'].values[0].startswith('plasmid'):
-            pass
+            pd_gbs_l.loc[target.name,'plasmid'] = 'yes'
         else:
             pass
             
     #coloring other from genomad
     if type(geno_p) == type(pd.DataFrame()):
         if target.name in list(geno_p['seq_name']):
-            pass
+            pd_gbs_l.loc[target.name,'plasmid'] = 'yes'
         else:
             r = np.full(100,0.98)
             theta = np.linspace(0,2*np.pi,100)
-            ax.fill(theta,r,'azure')
+            ax.fill(theta,r,args.c_non_p)
     
     graphics.plot_plasmid_map(
         ax, annotation, plasmid_size=len(s), tick_step=len(s),
@@ -406,7 +424,8 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
                 s_v, e_v = np.array(i.split('-')).astype(int)
                 r_v = np.full(100,0.98)
                 theta_v = np.linspace(2*np.pi*s_v/len(s),2*np.pi*e_v/len(s),100)
-                ax.plot(theta_v,r_v,'blue',linewidth=20,alpha=0.3)
+                ax.plot(theta_v,r_v,args.c_vir,linewidth=20,alpha=0.3)
+            pd_gbs_l.loc[target.name,'virus'] = ','.join(prophage_area)
         else:
             pass
             
@@ -419,6 +438,7 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
                     r_v = np.full(100,0.98)
                     theta_v = np.linspace(2*np.pi*s_v/len(s),2*np.pi*e_v/len(s),100)
                     ax.plot(theta_v,r_v,'blue',linewidth=20,alpha=0.3)
+                pd_gbs_l.loc[target.name,'virus'] = ','.join(prophage_area)
         else:
             pass
     
@@ -430,6 +450,8 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
     plt.savefig(store+target.name+'.png',dpi=100)
     
     plt.close()
+    
+    pd_gbs_l.to_csv(args.outdir+'/summary_gbk.csv')
 
 def page_main():
 	pf = ''
@@ -458,8 +480,25 @@ def page_main():
 		
 	logger.info('making maps')
 	
+	pd_gbs_l = pd.read_csv(args.outdir+'/summary_gbk.csv',index_col=0)
+	
+	
+	if args.plasmid_only:
+		pd_gbs_l = pd_gbs_l[pd_gbs_l['plasmid'] == 'yes']
+	
+	if args.non_plasmid_only:
+		pd_gbs_l = pd_gbs_l[pd_gbs_l['plasmid'] != 'yes']
+	
+	if args.v_a_only:
+		pd_gbs_l = pd_gbs_l[(~(pd_gbs_l['arg'].isnull())) | (~(pd_gbs_l['vfg'].isnull()))]
+	
+	if args.virus_only:
+		pd_gbs_l = pd_gbs_l[~(pd_gbs_l['virus'].isnull())]
+	
+	print(pd_gbs_l)
+	
 	imgs = []
-	for i in gbs_select[::-1]:
+	for i in pd_gbs_l.index[::-1]:
 		imgs.append(Image.open(args.outdir+'/tmp/image/'+i+'.png'))
 	
 	# merge horizontal images in the top
@@ -534,18 +573,19 @@ def page_main():
 gbs_select = []
 gbs = {}
 
-if os.path.isdir(args.dir):
-	uploaded_files = os.listdir(args.dir)
+if os.path.isdir(args.gbks):
+	uploaded_files = os.listdir(args.gbks)
 	if len(uploaded_files)>0:
 		for uploaded_file in uploaded_files:
 			if uploaded_file.endswith(('gb','gbk')):
-				record = SeqIO.read(args.dir+'/'+uploaded_file,'genbank')
+				record = SeqIO.read(args.gbks+'/'+uploaded_file,'genbank')
 				gbs[record.name] = record
 			else:
 				logger.warning('Unknown file:'+uploaded_file)
-		pd_gbs_len = pd.DataFrame([[i.name, len(i.seq)] for i in gbs.values()],columns=['n','l']).sort_values('l')
+		pd_gbs_len = pd.DataFrame([[i.name, len(i.seq),None,None,None,None] for i in gbs.values()],columns=['n','l','plasmid','virus','arg','vfg']).sort_values('l')
 		gbs_select = gbs_select + pd_gbs_len['n'].to_list()
 		min_len = min(pd_gbs_len['l'])
+		pd_gbs_len.to_csv(args.outdir+'/summary_gbk.csv',index=False)
 	else:
 		pass
 		
