@@ -39,14 +39,29 @@ python vicmag.py --dir /path_to_dir_containing_gbk_files --n_row 10  --outdir /p
 |command| |
 -----|-----
 |--dir| directory containing multiple genbank files (required)|
-|--plasflow| plasflow file|
-|--checkv_qua| checkv quality file|
-|--checkv_pro| checkv prophage file|
-|--genomad_p| genomad summary_plasmid|
-|--genomad_v| genomad summary_virus|
 |--n_row| the number of cMAGs in the first line (default:5)|
 |--outdir| output directory|
 |--force| remove exisitng output directory|
+|||
+|--plasflow| path to plasflow file|
+|--checkv_qua| path to checkv quality file|
+|--checkv_pro| path to checkv prophage file|
+|--genomad_p| path to genomad summary_plasmid|
+|--genomad_v| path to genomad summary_virus|
+|||
+|--plasmid_only| make map of plasmids only|
+|--non_plasmid_only| make map of non_plasmids only|
+|--v_a_only| make map of cMAGs containing vfgs or args|
+|--virus_only| make map of cMAGs containing virus area|
+|||
+|--c_arg| color of antimicrobial resistance genes (default:red)|
+|--c_vfg| color of virulence factor genes (default:green)|
+|--c_cd| color of cds (default:lightgrey)|
+|--c_vir| color of antimicrobial resistance genes (default:blue, alpha=0.3)|
+|--c_non_p| color of antimicrobial resistance genes (default:azure)|
+
+
+
 
 ## Example
 
