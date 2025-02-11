@@ -7,6 +7,7 @@ import argparse
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import biotite
 import biotite.sequence as seq
 import biotite.sequence.io.genbank as gb
@@ -108,6 +109,38 @@ def return_checkv_data():
     sum_cir_comp_or_highq = sum_checkv[(sum_checkv['checkv_quality']=='High-quality') | (sum_checkv['checkv_quality']=='Complete')]
     
     return sum_cir_comp_or_highq
+
+def make_legend(arg,vfg,vir,npl):
+    fig = plt.figure(figsize=(6,2 + 1.2 * sum([vir,npl])),layout='tight')
+    ax = plt.axes()
+    
+    arrow_arg = patches.Polygon([(1,8.5),(2.5,8.5),(3,8),(2.5,7.5),(1,7.5)],closed=True,ec=None,fc=arg)
+    arrow_vfg = patches.Polygon([(1,6.5),(2.5,6.5),(3,6),(2.5,5.5),(1,5.5)],closed=True,ec=None,fc=vfg)
+    
+    ax.add_patch(arrow_arg)
+    ax.add_patch(arrow_vfg)
+    
+    ax.text(3.5,8,'Antimicrobial resistance gene',fontsize=20,va='center')
+    ax.text(3.5,6,'Virurence factor gene',fontsize=20,va='center')
+    
+    if npl:
+        if vir:
+            plt.scatter(2,2,s=1500,marker='o',c='azure',edgecolor='black')
+            ax.text(3.5,2,'Not plasmid',fontsize=20,va='center')
+        else:
+            plt.scatter(2,4,s=1500,marker='o',c='azure',edgecolor='black')
+            ax.text(3.5,4,'Not plasmid',fontsize=20,va='center')
+
+    if vir:    
+        ax.plot([1,3],[4,4],c='black')
+        ax.plot([1.5,2.5],[4,4],lw=10,c=args.c_vir,alpha=0.5)
+        ax.text(3.5,4,'Virus area',fontsize=20,va='center')
+
+    plt.axis('off')
+    ax.set_xlim([0,20])
+    ax.set_ylim([10-4.5*sum([vir,npl]),9])
+
+    plt.savefig(args.outdir+'/legend.png')
 
 def make_map(accession,show_name=True,show_length=True,store='image/'):
     pf = ''
@@ -447,7 +480,7 @@ def make_map(accession,show_name=True,show_length=True,store='image/'):
     
     ax.text(0,0.08,accession.id+'\n\n'+"{:,}".format(len(target))+' bp',fontsize=20*rippo/2,ha='center',va='top')
     
-    plt.savefig(store+target.name+'.png',dpi=100)
+    plt.savefig(store+target.name+'.png',dpi=50)
     
     plt.close()
     
@@ -587,22 +620,27 @@ if os.path.isdir(args.gbks):
 	else:
 		pass
 		
+f_plasmid = False
+f_virus = False
 
 if os.path.isfile(args.plasflow):
     pf = pd.read_table(args.plasflow,index_col=0)
     pf.to_csv(args.outdir+'/tmp/pf.csv')
+    f_plasmid = True
 else:
     logger.warning('No plasflow files')
     
 if os.path.isfile(args.genomad_p):
     pf = pd.read_table(args.genomad_p,index_col=0)
-    pf.to_csv(args.outdir+'/tmp/geno_p.csv')    
+    pf.to_csv(args.outdir+'/tmp/geno_p.csv')  
+    f_plasmid = True  
 else:
     logger.warning('No GenoVi plasmid file')
     
 if os.path.isfile(args.genomad_v):
     pf = pd.read_table(args.genomad_v,index_col=0)
     pf.to_csv(args.outdir+'/tmp/geno_v.csv')  
+    f_virus = True
 else:
     logger.warning('No GenoVi virus file')
 
@@ -612,6 +650,9 @@ if os.path.isfile(args.checkv_qua) and os.path.file(args.checkv_pro):
             
             fasta_checkv = SeqIO.parse(args.checkv_pro,'fasta')
             SeqIO.write(fasta_checkv,args.outdir+'/tmp/fasta_checkv.fasta','fasta')
+            f_virus
+
+make_legend(args.c_arg, args.c_vfg,f_virus,f_plasmid)
 
 if len(gbs_select) > 1:
 		page_main()
