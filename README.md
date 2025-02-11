@@ -32,13 +32,13 @@ conda install -c conda-forge pillow biopython biotite -y
 ## Command
 
 ~~~ 
-python vicmag.py --dir /path_to_dir_containing_gbk_files --n_row 10  --outdir /path_to_output_dir
+python vicmag.py --gbks /path_to_dir_containing_gbk_files --n_row 10  --outdir /path_to_output_dir
 ~~~
 
 ### Options
 |command| |
 -----|-----
-|--dir| directory containing multiple genbank files (required)|
+|--gbks| directory containing multiple genbank files (required)|
 |--n_row| the number of cMAGs in the first line (default:5)|
 |--outdir| output directory|
 |--force| remove exisitng output directory|
