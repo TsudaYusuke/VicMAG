@@ -1,8 +1,6 @@
 import os
 import re
-import sys
 import shutil
-import tempfile
 import argparse
 import pandas as pd
 import numpy as np
@@ -88,9 +86,17 @@ def sort_gb_by_length(gb):
     return pd_gbs_len['n'].to_list()
 
 def add_margin_tate(img, sa1, height):
-    result = Image.new(img.mode,(height,height+sa1),(255,255,255))
-    result.paste(img,(0,round(sa1/2)))
+    haba = np.array(img).shape[1]
+    result = Image.new(img.mode,(haba+round(haba*0.05)*2,height+sa1),(255,255,255))
+    result.paste(img,(round(haba*0.05),round(sa1/2)))
     return result
+    
+def remove_margin(img):
+    bg = Image.new('RGBA',img.size,(255, 255, 255))
+    diff = ImageChops.difference(img,bg)
+    croprange = diff.convert('RGB').getbbox()
+    crop_img = img.crop(croprange)
+    return crop_img
     
 def return_checkv_data():
     extract_description = re.compile(r'(.*)\_(\d)\s(.*?)\/')
@@ -515,7 +521,6 @@ def page_main():
 	
 	pd_gbs_l = pd.read_csv(args.outdir+'/summary_gbk.csv',index_col=0)
 	
-	
 	if args.plasmid_only:
 		pd_gbs_l = pd_gbs_l[pd_gbs_l['plasmid'] == 'yes']
 	
@@ -534,32 +539,24 @@ def page_main():
 	
 	# merge horizontal images in the top
 	yoko = int(args.n_row)
-	space = 50
-	all_width = [np.array(i).shape[0] for i in imgs]
-	width_1 = [np.array(i).shape[0] for i in imgs[:yoko]]
+	all_height = [np.array(i).shape[0] for i in imgs]
+	height_1 = [np.array(i).shape[0] for i in imgs[:yoko]]
 	img_1 = []
-	for i in range(len(width_1)):
-		sa_1 = max(width_1)-width_1[i]
-		img_1.append(np.array(add_margin_tate(imgs[i],sa_1,width_1[i])))
+	for i in range(len(height_1)):
+		sa_1 = max(height_1)-height_1[i]
+		img_1.append(np.array(add_margin_tate(imgs[i],sa_1,height_1[i])))
 	im_1 = np.concatenate(img_1,axis=1)
 	
-	tn_im = np.where(im_1==255,np.nan,im_1)
-	not_white_1 = []
-	for j in range(tn_im.shape[0]):
-		if np.prod([np.isnan(tn_im[j,:,x]) for x in range(0,4)]) == 0:
-			not_white_1.append(j)
-	iro_ari_1 = list(range(not_white_1[0]-space,not_white_1[0]))+not_white_1+list(range(not_white_1[-1],not_white_1[-1]+space))
-	img_yoko_1 = im_1[iro_ari_1,:,:]
-	
-	max_width = img_yoko_1.shape[1]
-	img_to_show = [img_yoko_1]
+	max_width = im_1.shape[1]
+	img_to_show = [im_1]
 	
 	# merge vertical images
 	start = yoko
 	x = 1
 	ar = []
+	all_width = [np.array(i).shape[1] for i in imgs]
 	while start < len(all_width):
-		while sum(all_width[start:start+x]) < max_width:
+		while sum(all_width[start:start+x]) +2*round(sum(all_width[start:start+x]) *0.05) < max_width:
 			if start+x == len(all_width)+1:
 				ar.append(imgs[start:x+start-1])
 				break
@@ -569,24 +566,18 @@ def page_main():
 		start = start + x -1 
 		x = 1
 	
-	for k in ar:
-		width = [np.array(i).shape[0] for i in k]
-		img_each = []
-		for i in range(len(width)):
-			sa_each = max(width)-width[i]
-			img_each.append(np.array(add_margin_tate(k[i],sa_each,width[i])))
-		ims = np.concatenate(img_each,axis=1)
+	if len(ar) > 0:
+		for k in ar:
+			height = [np.array(i).shape[0]for i in k]
+			img_each = []
+			for i in range(len(height)):
+			    sa_each = max(height)-height[i]
+			    img_each.append(np.array(add_margin_tate(k[i],sa_each,height[i])))
+			ims = np.concatenate(img_each,axis=1)
+			img_to_show.append(ims)
+	else:
+		img_to_show = im_1
 	
-		img_yokos = []
-		tn_im = np.where(ims==255,np.nan,ims)
-		not_white = []
-		for j in range(tn_im.shape[0]):
-			if np.prod([np.isnan(tn_im[j,:,x]) for x in range(0,4)]) == 0: # 4次元で255だらけのところを外す
-				not_white.append(j)
-		iro_ari = list(range(not_white[0]-space,not_white[0]))+not_white+list(range(not_white[-1],not_white[-1]+space))
-		img_yokos = ims[iro_ari,:,:]
-		img_to_show.append(img_yokos)
-		
 	fig, ax = plt.subplots()
 	ax.axis('off')
 	
@@ -599,7 +590,6 @@ def page_main():
 	Image.fromarray(im.astype(np.uint8)).save(args.outdir+'/cMAGS.png') 
 	
 	logger.info('Done! See you!')
-	
 
 gbs_select = []
 gbs = {}
