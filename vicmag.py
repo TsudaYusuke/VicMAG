@@ -1,8 +1,6 @@
 import os
 import re
-import sys
 import shutil
-import tempfile
 import argparse
 import pandas as pd
 import numpy as np
@@ -537,7 +535,7 @@ def page_main():
 	
 	imgs = []
 	for i in pd_gbs_l.index[::-1]:
-		imgs.append(Image.open(args.outdir+'/tmp/image/'+i+'.png'))
+		imgs.append(remove_margin(Image.open(args.outdir+'/tmp/image/'+i+'.png')))
 	
 	# merge horizontal images in the top
 	yoko = int(args.n_row)
@@ -548,7 +546,6 @@ def page_main():
 		sa_1 = max(height_1)-height_1[i]
 		img_1.append(np.array(add_margin_tate(imgs[i],sa_1,height_1[i])))
 	im_1 = np.concatenate(img_1,axis=1)
-	
 	max_width = im_1.shape[1]
 	img_to_show = [im_1]
 	
@@ -608,7 +605,10 @@ if os.path.isdir(args.gbks):
 		pd_gbs_len = pd.DataFrame([[i.name, len(i.seq),None,None,None,None] for i in gbs.values()],columns=['n','l','plasmid','virus','arg','vfg']).sort_values('l')
 		gbs_select = gbs_select + pd_gbs_len['n'].to_list()
 		min_len = min(pd_gbs_len['l'])
-		pd_gbs_len.to_csv(args.outdir+'/summary_gbk.csv',index=False)
+		if os.path.isfile(args.outdir+'/summary_gbk.csv'):
+			pass
+		else:
+			pd_gbs_len.to_csv(args.outdir+'/summary_gbk.csv',index=False)
 	else:
 		pass
 		
