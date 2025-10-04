@@ -1,6 +1,8 @@
 import os
 import re
+import sys
 import shutil
+import tempfile
 import argparse
 import pandas as pd
 import numpy as np
@@ -12,7 +14,7 @@ import biotite.sequence.io.genbank as gb
 import biotite.sequence.graphics as graphics
 import biotite.database.entrez as entrez
 from Bio import SeqIO
-from PIL import Image
+from PIL import Image, ImageChops, ImageOps
 from pathlib import Path
 from statistics import mean
 from logging import getLogger,INFO,DEBUG,StreamHandler,Formatter,FileHandler
