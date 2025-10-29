@@ -11,9 +11,9 @@ VicMAG: visualizing circular metagenome-assembled genomes focused on bacterial v
 Python with the following libraries
 - Pandas
 - matplotlib
-- Bioconda
+- Biopython
 - Biotite
-- PIL
+- pillow (PIL)
 
 ~~~
 conda install pandas matplotlib -y
