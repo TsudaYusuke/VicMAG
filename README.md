@@ -1,8 +1,8 @@
-<img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/neon.png"><img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/neon.png"><img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/neon.png"><img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/neon.png"><img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/neon.png"><img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/neon.png"><img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/neon.png"><img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/neon.png">
+<img width="100" src="https://github.com/TsudaYusuke/VicMAG/blob/main/neon.png">
 
 # VicMAG 
 
-VicMAG: visualizing circular metagenome-assembled genomes focused on bacterial virulence and antimicrobial resistance
+VicMAG, an open-source tool for visualizing circular metagenome-assembled genomes highlighting bacterial virulence and antimicrobial resistance
 
 ## Prerequired
 Python with the following libraries
