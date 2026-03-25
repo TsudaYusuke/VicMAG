@@ -66,5 +66,8 @@ python vicmag.py --gbks /path_to_dir_containing_gbk_files --n_row 10  --outdir /
 image will be uploaded
 
 ## Reference
-Please cite the following article. Thank you.
+Please cite the following article. 
+bioRxiv
+
+Thank you.
 
