@@ -62,7 +62,7 @@ python vicmag.py --gbks /path_to_dir_containing_gbk_files --n_row 10  --outdir /
 
 
 ## Example
-<img width="200" src="https://github.com/TsudaYusuke/VicMAG/blob/main/Figure2.png">
+<img width="200" src="https://github.com/TsudaYusuke/VicMAG/blob/main/Example.png">
 
 ## Reference
 Please cite the following article. 
