@@ -36,7 +36,7 @@ genomad end-to-end dir_fasta_files/sample.fasta /genomad_output
 ## Install
 from source
 ~~~
-conda create -n vicmag python=3.10 -y
+conda create -n vicmag python -y
 conda activate vicmag
 
 conda install -c conda-forge pandas matplotlib pillow biopython biotite -y
