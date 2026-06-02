@@ -77,7 +77,7 @@ python vicmag.py --gbks /path_to_dir_containing_gbk_files --n_row 10  --outdir /
 |--c_vir| color of antimicrobial resistance genes (default:blue, alpha=0.3)|
 |--c_non_p| color of antimicrobial resistance genes (default:azure)|
 |||
-|----png_dpi| DPI for individual cMAG PNG files (default: 50)|
+|--png_dpi| DPI for individual cMAG PNG files (default: 50)|
 |--tiff| also save final cMAGS image as TIFF|
 |--tiff_dpi| DPI for final TIFF output (default: 300)|
 |--max_vfg_labels| maximum number of VFG labels before collapsing nearby VFG labels (default:8)|
