@@ -49,7 +49,7 @@ genomad end-to-end dir_fasta_files/sample.fasta /genomad_output
 ## Command
 
 ~~~ 
-python vicmag.py --gbks /path_to_dir_containing_gbk_files --n_row 10  --outdir /path_to_output_dir
+vicmag --gbks /path_to_dir_containing_gbk_files --n_row 10  --outdir /path_to_output_dir
 ~~~
 
 ### Options
