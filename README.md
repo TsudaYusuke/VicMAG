@@ -13,12 +13,14 @@ Python with the following libraries
 - Biotite
 - pillow (PIL)
 
-~~~
-conda install pandas matplotlib -y
-conda install -c conda-forge pillow biopython biotite -y
+## Installation
+
+VicMAG can be installed via Bioconda:
+
+~~~bash
+conda install -c bioconda -c conda-forge vicmag
 ~~~
 
-## Install
 from source
 ~~~
 conda create -n vicmag python -y
@@ -28,8 +30,6 @@ conda install -c conda-forge pandas matplotlib pillow biopython biotite -y
 
 git clone https://github.com/your_account/VicMAG.git
 ~~~
-
-Installation via pip and conda will be supported in the upcoming release.
 
 ## Before run
  - extract cicular MAGs
