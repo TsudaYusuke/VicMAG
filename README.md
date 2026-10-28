@@ -92,9 +92,7 @@ vicmag --gbks /path_to_dir_containing_gbk_files --n_row 10  --outdir /path_to_ou
 ## Reference
 Please cite the following article. 
 
-VicMAG, an open-source tool for visualizing circular metagenome-assembled genomes highlighting bacterial virulence and antimicrobial resistance.
-Yusuke Tsuda, Yasuhiro Tanizawa, Thi My Hanh Vu, Yosuke Nishimura, Masaki Shintani, Haruka Abe, Futoshi Hasebe, Ikuro Kasuga, Miki Nagao, Masato Suzuki.
-bioRxiv 2026.03.31.714378; doi: https://doi.org/10.64898/2026.03.31.714378
+Yusuke Tsuda, Yasuhiro Tanizawa, Thi My Hanh Vu, Yosuke Nishimura, Masaki Shintani, Haruka Abe, Futoshi Hasebe, Ikuro Kasuga, Miki Nagao, Masato Suzuki, VicMAG, an open-source tool for visualizing circular metagenome-assembled genomes highlighting bacterial virulence and antimicrobial resistance, NAR Genomics and Bioinformatics, Volume 8, Issue 3, September 2026, lqag109, https://doi.org/10.1093/nargab/lqag109
 
 Thank you.
 
